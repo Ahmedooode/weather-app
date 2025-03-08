@@ -1,95 +1,204 @@
-*{
-    margin: 0;
-    padding: 0;
-    font-family: 'Poppins', sans-serif;
-    box-sizing: border-box;
+html,
+body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden; /* Hide scrollbars if stars go outside the viewport */
 }
-body{
-    background: #222;
-}
-.card{
-    width: 90%;
-    max-width: 470px;
-    background: linear-gradient(135deg, #7cdaff, #348cff);
-    /* background: linear-gradient(135deg, #33015c, #010b66); */
 
-    color: #fff;
-    margin: 100px auto 0;
-    border-radius: 20px;
-    padding: 40px 35px;
-    text-align: center;  
+* {
+  margin: 0;
+  padding: 0;
+  font-family: 'Poppins', sans-serif;
+  box-sizing: border-box;
 }
-.search{
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+
+body {
+  background: #222;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  position: relative; /* Needed for absolute positioning of stars */
 }
-.search input{
-    border: 0;
-    outline: 0;
-    background: #ebfffc;
-    color: #555;
-    padding: 10px 25px;
-    height: 60px;
-    border-radius: 30px;
-    flex: 1;
-    margin-right: 16px;
-    font-size: 18px;
+
+.card {
+  width: 100%;
+  max-width: 470px;
+  background: linear-gradient(135deg, #7cdaff, #348cff);
+  color: #fff;
+  border-radius: 20px;
+  padding: 40px 35px;
+  text-align: center;
+  position: relative; /* For relative positioning of the star inside card*/
+  z-index: 10; /* Ensure card is above the stars */
 }
-.search button{
-    border: 0;
-    outline: 0;
-    background: #ebfffc;
+
+/* Stars effect */
+.stars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Allows clicks to pass through to the card */
+  z-index: 1; /* Place stars behind the card */
+}
+
+.star {
+  position: absolute;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 5px #fff;
+  animation: twinkle 2s linear infinite;
+}
+
+.meteor {
+    position: absolute;
+    top: -10px;
+    left: 0;
+    width: 100px;
+    height: 5px;
+    background: linear-gradient(to right, rgba(255,255,255,0), white);
+    border-radius: 5px;
+    box-shadow: 0 0 10px white;
+    animation: meteor-fall 5s linear infinite;
+    pointer-events: none;
+}
+
+.meteor::before{
+    content:'';
+    position:absolute;
+    top: 0;
+    left:0;
+    width: 10px;
+    height: 10px;
+    background-color: #fff;
     border-radius: 50%;
-    width: 60px;
-    height: 60px;
-    cursor: pointer;
+    box-shadow: 0 0 2px #fff;
 }
-.search button img{
-    width: 16px;
 
+.meteor:nth-child(2){
+    left: 50%;
+    animation-delay: 2s;
 }
-.weather-icon{
-    width: 170px;
-    margin-top: 30px;
+
+.meteor:nth-child(3){
+    left: 25%;
+    animation-delay: 3.5s;
 }
-.weather h1{
-    font-size: 80px;
-    font-weight: 500;
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
 }
-.weather h2{
-    font-size: 45px;
-    font-weight: 400;
-    margin-top: -10px;
+
+@keyframes meteor-fall {
+    0% {
+        transform: rotate(45deg) translateX(-100px) translateY(-100px);
+        opacity: 0;
+    }
+
+    10%{
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 1;
+    }
+    100% {
+        transform: rotate(45deg) translateX(150vw) translateY(150vh);
+        opacity: 0;
+    }
 }
-.details{
-    display: flex;
-    align-items:  center;
-    justify-content: space-between;
-    padding: 0 20px;
-    margin-top: 50px;
+
+.search {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
-.col{
-    display: flex;
-    align-items: center;
-    text-align: left;
+
+.search input {
+  border: 0;
+  outline: 0;
+  background: #ebfffc;
+  color: #555;
+  padding: 10px 25px;
+  height: 60px;
+  border-radius: 30px;
+  flex: 1;
+  margin-right: 16px;
+  font-size: 18px;
 }
-.col img{
-    width: 40px;
-    margin-right: 10px;
+
+.search button {
+  border: 0;
+  outline: 0;
+  background: #ebfffc;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  cursor: pointer;
 }
-.humidity, .wind{
-    font-size: 28px;
-    margin-top: -6px;
+
+.search button img {
+  width: 16px;
 }
-.weather{
-    display: none;
+
+.weather-icon {
+  width: 170px;
+  margin-top: 30px;
 }
-.error{
-    text-align: left;
-    margin-left: 10px;
-    font-size: 14px;
-    margin-top: 10px;
-    display: none;
+
+.weather h1 {
+  font-size: 80px;
+  font-weight: 500;
+}
+
+.weather h2 {
+  font-size: 45px;
+  font-weight: 400;
+  margin-top: -10px;
+}
+
+.details {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  margin-top: 50px;
+}
+
+.col {
+  display: flex;
+  align-items: center;
+  text-align: left;
+}
+
+.col img {
+  width: 40px;
+  margin-right: 10px;
+}
+
+.humidity,
+.wind {
+  font-size: 28px;
+  margin-top: -6px;
+}
+
+.weather {
+  display: none;
+}
+
+.error {
+  text-align: left;
+  margin-left: 10px;
+  font-size: 14px;
+  margin-top: 10px;
+  display: none;
 }

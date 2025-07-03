@@ -1,47 +1,61 @@
-html,
-body {
-  height: 100%;
-  width: 100%;
-  overflow: hidden; /* Hide scrollbars if stars go outside the viewport */
-}
-
+/* Reset and Base Styles */
 * {
   margin: 0;
   padding: 0;
-  font-family: 'Poppins', sans-serif;
   box-sizing: border-box;
+  font-family: 'Poppins', sans-serif;
+}
+
+:root {
+  --text-primary: #ffffff;
+  --text-secondary: #c2c2c2;
+  --bg-color-day: #4a90e2;
+  --bg-color-night: #0d1b2a;
+  --details-bg: rgba(255, 255, 255, 0.05);
+  --accent-color: #f7b733;
 }
 
 body {
-  background: #222;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  position: relative; /* Needed for absolute positioning of stars */
+  /* Default to day background, controlled by JS */
+  background-image: url('images/day.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  color: var(--text-primary);
+  transition: background-image 0.8s ease-in-out;
+  /* Prevent horizontal scrollbars caused by vw units or overflows */
+  overflow-x: hidden;
 }
 
-.card {
-  width: 100%;
-  max-width: 470px;
-  background: linear-gradient(135deg, #7cdaff, #348cff);
-  color: #fff;
-  border-radius: 20px;
-  padding: 40px 35px;
-  text-align: center;
-  position: relative; /* For relative positioning of the star inside card*/
-  z-index: 10; /* Ensure card is above the stars */
+body.night {
+    background-image: url('images/night.png');
 }
 
-/* Stars effect */
+/* When weather is loaded, switch from image to solid color */
+body.weather-active {
+    background-image: none;
+    background-color: var(--bg-color-day);
+}
+
+body.weather-active.night {
+    background-color: var(--bg-color-night);
+}
+
+/* Background Star Effect */
 .stars {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none; /* Allows clicks to pass through to the card */
-  z-index: 1; /* Place stars behind the card */
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+body.night .stars {
+    opacity: 1;
 }
 
 .star {
@@ -52,153 +66,320 @@ body {
   animation: twinkle 2s linear infinite;
 }
 
-.meteor {
-    position: absolute;
-    top: -10px;
-    left: 0;
-    width: 100px;
-    height: 5px;
-    background: linear-gradient(to right, rgba(255,255,255,0), white);
-    border-radius: 5px;
-    box-shadow: 0 0 10px white;
-    animation: meteor-fall 5s linear infinite;
-    pointer-events: none;
-}
-
-.meteor::before{
-    content:'';
-    position:absolute;
-    top: 0;
-    left:0;
-    width: 10px;
-    height: 10px;
-    background-color: #fff;
-    border-radius: 50%;
-    box-shadow: 0 0 2px #fff;
-}
-
-.meteor:nth-child(2){
-    left: 50%;
-    animation-delay: 2s;
-}
-
-.meteor:nth-child(3){
-    left: 25%;
-    animation-delay: 3.5s;
-}
-
 @keyframes twinkle {
-  0%,
-  100% {
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-  }
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
 }
 
-@keyframes meteor-fall {
-    0% {
-        transform: rotate(45deg) translateX(-100px) translateY(-100px);
-        opacity: 0;
-    }
-
-    10%{
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 1;
-    }
-    100% {
-        transform: rotate(45deg) translateX(150vw) translateY(150vh);
-        opacity: 0;
-    }
+/* Cloud and Rain Effects */
+.clouds-bg, .rain-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.8s ease;
 }
 
+.clouds-bg.visible, .rain-bg.visible {
+  opacity: 1;
+}
+
+.clouds-bg {
+  background: url('images/clouds-bg.png'); /* You will need a seamless cloud texture image */
+  background-repeat: repeat-x;
+  background-position: center;
+  animation: moveClouds 60s linear infinite;
+}
+
+@keyframes moveClouds {
+  from { background-position-x: 0; }
+  to { background-position-x: 1000px; } /* Adjust based on image width */
+}
+
+.rain-bg {
+  background-image: linear-gradient(transparent, rgba(255,255,255,0.2) 1px, transparent 1px), linear-gradient(90deg, transparent, rgba(255,255,255,0.2) 1px, transparent 1px);
+  background-size: 30px 30px, 30px 30px;
+  animation: moveRain 0.5s linear infinite;
+}
+
+@keyframes moveRain {
+  from { background-position: 0 0; }
+  to { background-position: 0 100px; }
+}
+
+/* Main Layout */
+.weather-container {
+  display: flex;
+  width: 100%; /* Use 100% instead of 100vw to avoid scrollbar issues */
+  height: 100vh;
+}
+
+.weather-main {
+  width: 70%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 4rem;
+  position: relative;
+  gap: 4rem;
+}
+
+.weather-details {
+  width: 30%;
+  background: var(--details-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px); /* For Safari */
+  padding: 4rem 2rem;
+  display: flex;
+  /* On desktop, the details panel can scroll if content overflows */
+  overflow-y: auto;
+  flex-direction: column;
+}
+
+/* Main Weather Info Panel (Left) */
+.weather-main .weather {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.weather .temp {
+  font-size: 10rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.weather .city-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.weather .city {
+  font-size: 4rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.weather .date-time {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+}
+
+.weather .weather-icon {
+  width: 150px;
+  height: 150px;
+  margin: 0;
+}
+
+/* Details Panel (Right) */
 .search {
   width: 100%;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  margin-bottom: 3rem;
 }
 
 .search input {
   border: 0;
   outline: 0;
-  background: #ebfffc;
-  color: #555;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
   padding: 10px 25px;
-  height: 60px;
+  height: 50px;
   border-radius: 30px;
   flex: 1;
-  margin-right: 16px;
-  font-size: 18px;
+  margin-right: 10px;
+  font-size: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  /* Allow the input to shrink smaller than its default minimum size */
+  min-width: 0;
+}
+
+.search input::placeholder {
+    color: var(--text-secondary);
 }
 
 .search button {
   border: 0;
   outline: 0;
-  background: #ebfffc;
+  background: #fff;
   border-radius: 50%;
-  width: 60px;
-  height: 60px;
+  width: 50px;
+  height: 50px;
   cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.search button:hover {
+    background: #ddd;
 }
 
 .search button img {
   width: 16px;
 }
 
-.weather-icon {
-  width: 170px;
-  margin-top: 30px;
+.details-list h3 {
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.weather h1 {
-  font-size: 80px;
-  font-weight: 500;
+.details-list ul {
+    list-style: none;
 }
 
-.weather h2 {
-  font-size: 45px;
-  font-weight: 400;
-  margin-top: -10px;
+.details-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 0;
+    font-size: 1rem;
 }
 
-.details {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  margin-top: 50px;
+.details-list li span:first-child {
+    color: var(--text-secondary);
 }
 
-.col {
-  display: flex;
-  align-items: center;
-  text-align: left;
+.details-list li span:last-child {
+    font-weight: 500;
 }
 
-.col img {
-  width: 40px;
-  margin-right: 10px;
+/* Forecast List */
+.forecast-list {
+    width: 100%;
+    max-width: 800px; /* Constrain width on large screens */
 }
 
-.humidity,
-.wind {
-  font-size: 28px;
-  margin-top: -6px;
+.forecast-list ul {
+    list-style: none;
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    overflow-x: auto; /* For smaller screens */
+    padding: 1rem;
+    /* Optional: Add a subtle background to group the forecast */
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 20px;
 }
 
-.weather {
-  display: none;
+.forecast-list li {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    min-width: 60px;
 }
 
+.forecast-list .forecast-icon {
+    width: 40px;
+    height: 40px;
+}
+
+.forecast-list .day-temp {
+    color: var(--text-secondary);
+}
+
+/* Error and Initial State */
 .error {
   text-align: left;
   margin-left: 10px;
   font-size: 14px;
-  margin-top: 10px;
+  margin-top: -2rem;
+  margin-bottom: 2rem;
+  color: var(--accent-color);
   display: none;
+}
+
+/* Loader */
+.loader {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+/* Initially hide the main content until a search is made */
+.weather-main .weather, .details-list, .forecast-list {
+    display: none;
+}
+
+.weather-main .weather.visible {
+    display: flex;
+}
+.details-list.visible {
+    display: block;
+}
+.forecast-list.visible {
+    display: block;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .weather .temp {
+        font-size: 8rem;
+    }
+    .weather .city {
+        font-size: 3rem;
+    }
+    .weather .weather-icon {
+        width: 120px;
+        height: 120px;
+    }
+    .weather-main {
+        padding: 3rem;
+        gap: 3rem;
+    }
+    .weather-details {
+        padding: 3rem 1.5rem;
+    }
+}
+
+@media (max-width: 900px) {
+    .weather-container {
+        flex-direction: column;
+        height: auto;
+        min-height: 100vh;
+    }
+    .weather-main, .weather-details {
+        width: 100%;
+    }
+    .weather-details {
+        /* Allow the details panel to have its own height and not scroll internally on mobile */
+        overflow-y: visible;
+        /* Remove excessive top padding as it's now below the main content */
+        padding-top: 2rem;
+    }
+    .weather-main .weather {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+    .forecast-list ul {
+        justify-content: flex-start; /* Allow scrolling on mobile */
+    }
+}
+
+@media (max-width: 600px) {
+    .weather .temp {
+        font-size: 6rem;
+    }
+    .weather .city {
+        font-size: 2.5rem;
+    }
+    .weather-main {
+        padding: 2rem 1rem;
+        gap: 2rem;
+    }
+    .weather-details {
+        padding: 2rem 1rem;
+    }
 }

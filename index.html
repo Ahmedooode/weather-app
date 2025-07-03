@@ -4,37 +4,81 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="card">
-        <div class="search">
-            <input class="cityName" type="text" placeholder="enter city name" spellcheck="false">
-            <button><img src="images/search.png" alt=""></button>
-        </div>
-        <div class="error">
-            <p>Invalid City Name</p>
-        </div>
-        <div class="weather">
-            <img src="images/rain.png" class="weather-icon">
-            <h1 class="temp">22°c</h1>
-            <h2 class="city">New York</h2>
-            <div class="details">
-                <div class="col">
-                    <img src="images/humidity.png">
-                    <p class="humidity">50%</p>
-                    <p>humidity</p>
-                </div>
-                <div class="col">
-                    <img src="images/wind.png">
-                    <p class="wind">50%</p>
-                    <p>Wind Speed</p>
-                </div>
-            </div>
-        </div>  
-    </div>
+    <!-- Background effects will be controlled by JS/CSS -->
+    <div class="stars"></div>
+    <div class="clouds-bg"></div>
+    <div class="rain-bg"></div>
 
-  <script src="javascript.js">
-  </script>  
+    <main class="weather-container">
+        <!-- Left Panel: Main Weather Info -->
+        <section class="weather-main">
+            <div class="loader">
+                <p>Loading weather...</p>
+            </div>
+            <div class="weather">
+                <h1 class="temp">22°</h1>
+                <div class="city-info">
+                    <h2 class="city">New York</h2>
+                    <p class="date-time">06:09 - Monday, 1 Sep '23</p>
+                </div>
+                <img src="images/clear.png" class="weather-icon" alt="Weather condition">
+            </div>
+            <div class="forecast-list">
+                <ul>
+                    <!-- Forecast items will be injected here by JS -->
+                </ul>
+            </div>
+        </section>
+
+        <!-- Right Panel: Search and Details -->
+        <section class="weather-details">
+            <form class="search">
+                <input class="cityName" type="text" placeholder="Another location" spellcheck="false">
+                <button type="submit" aria-label="Search for location"><img src="images/search.png" alt="Search"></button>
+            </form>
+            <div class="error">
+                <p>Location not found.</p>
+            </div>
+            <div class="details-list">
+                <h3>Weather Details</h3>
+                <ul>
+                    <li>
+                        <span>Feels Like</span>
+                        <span class="feels-like">25°</span>
+                    </li>
+                    <li>
+                        <span>Humidity</span>
+                        <span class="humidity">50%</span>
+                    </li>
+                    <li>
+                        <span>Wind</span>
+                        <span class="wind">15 km/h</span>
+                    </li>
+                    <li>
+                        <span>UV Index</span>
+                        <span class="uv-index">5</span>
+                    </li>
+                    <li>
+                        <span>Visibility</span>
+                        <span class="visibility">10 km</span>
+                    </li>
+                    <li>
+                        <span>Sunrise</span>
+                        <span class="sunrise">06:00</span>
+                    </li>
+                    <li>
+                        <span>Sunset</span>
+                        <span class="sunset">18:30</span>
+                    </li>
+                </ul>
+            </div>
+        </section>
+    </main>
+
+  <script src="javascript.js"></script>
 </body>
 </html>

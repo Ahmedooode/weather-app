@@ -145,6 +145,13 @@ function updateAppearance(conditions) {
 
     const conditionIcon = conditions.icon; // e.g., "partly-cloudy-day", "clear-night", "rain"
 
+    // Set day/night theme based on API response (icon name)
+    if (conditionIcon.includes('night')) {
+        body.classList.add('night');
+    } else {
+        body.classList.remove('night');
+    }
+
     // Set dynamic background effects
     if (cloudsContainer && conditionIcon.includes('cloudy')) {
         cloudsContainer.classList.add('visible');
@@ -239,8 +246,8 @@ function hideError() {
 }
 
 /**
- * Sets the day/night theme based on the user's local time.
- * This determines the main background image and star visibility.
+ * Sets the initial day/night theme based on the user's local time.
+ * This determines the main background color before the first API call.
  */
 function setInitialTheme() {
     const currentHour = new Date().getHours();
@@ -291,6 +298,6 @@ searchBtn.closest('form').addEventListener("submit", (e) => {
 });
 
 // --- Initial Load ---
-setInitialTheme(); // Set theme based on user's local time
+setInitialTheme(); // Set theme based on user's local time for the initial view.
 initializeStars(150); // Create stars once when the page loads.
 getInitialWeather(); // Get weather for user's location on start.

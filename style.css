@@ -16,28 +16,15 @@
 }
 
 body {
-  /* Default to day background, controlled by JS */
-  background-image: url('images/day.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  /* Default to day theme, controlled by JS */
+  background-color: var(--bg-color-day);
   color: var(--text-primary);
-  transition: background-image 0.8s ease-in-out;
+  transition: background-color 0.8s ease-in-out;
   /* Prevent horizontal scrollbars caused by vw units or overflows */
   overflow-x: hidden;
 }
 
 body.night {
-    background-image: url('images/night.png');
-}
-
-/* When weather is loaded, switch from image to solid color */
-body.weather-active {
-    background-image: none;
-    background-color: var(--bg-color-day);
-}
-
-body.weather-active.night {
     background-color: var(--bg-color-night);
 }
 

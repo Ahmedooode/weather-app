@@ -54,9 +54,10 @@ const iconMap = {
 /**
  * Fetches and displays weather data for a given city.
  * @param {string} location The name of the city, "lat,lon", or "auto".
+ * @param {string} [locationName] The display name for the location, to override API's resolvedAddress.
  */
-async function checkWeather(location) {
-    // Add a check to ensure the API key has been set.
+async function checkWeather(location, locationName) {
+    // Check for API key.
     if (apiKey === "YOUR_API_KEY_HERE" || !apiKey) {
         showError("API key is missing. Please add it to javascript.js");
         loader.style.display = 'none';
@@ -70,11 +71,9 @@ async function checkWeather(location) {
     hideError();
     loader.style.display = 'flex';
 
-    let loadingText = `Fetching weather for ${location}...`;
+    let loadingText = `Fetching weather for ${locationName || location}...`;
     if (location === 'auto') {
         loadingText = "Fetching weather for your location...";
-    } else if (location.includes(',')) {
-        loadingText = "Fetching weather for your current coordinates...";
     }
     loader.querySelector('p').textContent = loadingText;
 
@@ -89,7 +88,7 @@ async function checkWeather(location) {
         }
 
         const data = await response.json();
-        updateWeatherUI(data);
+        updateWeatherUI(data, locationName);
 
     } catch (error) {
         console.error("Error fetching weather data:", error);
@@ -103,14 +102,16 @@ async function checkWeather(location) {
 /**
  * Updates the entire UI with the fetched weather data.
  * @param {object} data The weather data object from the API.
+ * @param {string} [locationName] The display name for the location.
  */
-function updateWeatherUI(data) {
-    const { currentConditions } = data;
+function updateWeatherUI(data, locationName) {
+    const { currentConditions, timezone, resolvedAddress } = data;
+    const timeStr = currentConditions.datetime.slice(0, 5); // "14:30:00" -> "14:30"
 
     // Update main display
     tempElement.innerHTML = `${Math.round(currentConditions.temp)}°`;
-    cityElement.innerHTML = data.resolvedAddress.split(',')[0]; // Show just the city name
-    dateTimeElement.innerHTML = formatDateTime(currentConditions.datetimeEpoch);
+    cityElement.innerHTML = locationName || resolvedAddress.split(',')[0];
+    dateTimeElement.innerHTML = `${timeStr} - ${formatDate(currentConditions.datetimeEpoch, timezone)}`;
     
     // Update details panel
     feelsLikeElement.innerHTML = `${Math.round(currentConditions.feelslike)}°`;
@@ -118,8 +119,9 @@ function updateWeatherUI(data) {
     windElement.innerHTML = `${currentConditions.windspeed} km/h`;
     uvIndexElement.innerHTML = currentConditions.uvindex;
     visibilityElement.innerHTML = `${currentConditions.visibility} km`;
-    sunriseElement.innerHTML = formatTime(currentConditions.sunriseEpoch);
-    sunsetElement.innerHTML = formatTime(currentConditions.sunsetEpoch);
+    // Use pre-formatted time strings from API and slice to HH:MM
+    sunriseElement.innerHTML = currentConditions.sunrise.slice(0, 5);
+    sunsetElement.innerHTML = currentConditions.sunset.slice(0, 5);
 
     // Update icon and background
     updateAppearance(currentConditions);
@@ -165,35 +167,15 @@ function updateAppearance(conditions) {
 }
 
 /**
- * Formats a UNIX epoch timestamp into a human-readable string.
+ * Formats a UNIX epoch timestamp into a human-readable date string for a specific timezone.
  * @param {number} epochSeconds The timestamp in seconds.
- * @returns {string} The formatted date and time string.
+ * @param {string} timeZone The IANA timezone name (e.g., "America/New_York").
+ * @returns {string} The formatted date string (e.g., "Monday, 1 Sep").
  */
-function formatDateTime(epochSeconds) {
+function formatDate(epochSeconds, timeZone) {
     const date = new Date(epochSeconds * 1000);
-    const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: false };
-    const dateOptions = { weekday: 'long', day: 'numeric', month: 'short' };
-
-    const timeStr = new Intl.DateTimeFormat('en-US', timeOptions).format(date);
-    const dateStr = new Intl.DateTimeFormat('en-US', dateOptions).format(date);
-
-    // Manually construct to get "06:09 - Monday, 1 Sep" format
-    return `${timeStr} - ${dateStr}`;
-}
-
-/**
- * Formats a UNIX epoch timestamp into a HH:MM string.
- * @param {number} epochSeconds The timestamp in seconds.
- * @returns {string} The formatted time string (e.g., "06:30").
- */
-function formatTime(epochSeconds) {
-    const date = new Date(epochSeconds * 1000);
-    const options = {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    };
-    return new Intl.DateTimeFormat('en-US', options).format(date);
+    const dateOptions = { weekday: 'long', day: 'numeric', month: 'short', timeZone };
+    return new Intl.DateTimeFormat('en-US', dateOptions).format(date);
 }
 
 /**
@@ -260,13 +242,53 @@ function setInitialTheme() {
 }
 
 /**
- * Tries to get user's location via Geolocation API,
- * falling back to IP-based lookup.
+ * Fallback function to get weather using IP-based geolocation.
+ * This is used if the browser's Geolocation API fails or is not supported.
+ */
+async function getWeatherByIP() {
+    console.log("Attempting to get location via IP lookup as a fallback.");
+    try {
+        // Use a third-party service to get location from IP.
+        const ipResponse = await fetch('https://ip-api.com/json/');
+        if (!ipResponse.ok) {
+            throw new Error('IP lookup response was not ok.');
+        }
+        const ipData = await ipResponse.json();
+        if (ipData.status === 'success' && ipData.lat && ipData.lon) {
+            const location = `${ipData.lat},${ipData.lon}`;
+            // Use the city from the IP lookup for a clean display name.
+            checkWeather(location, ipData.city);
+        } else {
+            console.warn("Could not determine coordinates from IP, falling back to 'auto'.", ipData);
+            checkWeather('auto');
+        }
+    } catch (error) {
+        console.warn("IP-based geolocation also failed, using weather API's 'auto' fallback.", error);
+        checkWeather('auto');
+    }
+}
+
+/**
+ * Tries to get the user's location via the browser's Geolocation API for accuracy.
+ * This is requested once on page load. If it fails or is denied, it falls back to an IP-based lookup.
  */
 function getInitialWeather() {
-    // Get weather based on user's IP address.
-    // This avoids the need for a browser permission prompt.
-    checkWeather('auto');
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => { // Success
+                const { latitude, longitude } = position.coords;
+                checkWeather(`${latitude},${longitude}`);
+            },
+            (error) => { // Error or permission denied
+                console.warn(`Geolocation error (${error.code}): ${error.message}. Falling back to IP lookup.`);
+                getWeatherByIP();
+            }
+        );
+    } else {
+        // Geolocation not supported by the browser
+        console.warn("Geolocation is not supported by this browser. Falling back to IP lookup.");
+        getWeatherByIP();
+    }
 }
 
 /**

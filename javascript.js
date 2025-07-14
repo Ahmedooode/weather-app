@@ -6,7 +6,7 @@ const cloudsContainer = document.querySelector('.clouds-bg');
 const rainContainer = document.querySelector('.rain-bg');
 const loader = document.querySelector('.loader');
 
-// Main weather display
+// Main weather display:items that show weather details
 const weatherDisplay = document.querySelector(".weather-main .weather");
 const tempElement = document.querySelector(".temp");
 const cityElement = document.querySelector(".city");

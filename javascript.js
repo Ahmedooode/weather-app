@@ -37,6 +37,9 @@ const apiKey = "P3BPWX6G9ESRZ6TV76DVUY6WA";
 const apiHost = "https://weather.visualcrossing.com";
 
 // Map API icons to our local image files
+// --- State Management ---
+let isInitialLoad = true;
+
 const iconMap = {
     'partly-cloudy-day': 'images/clouds.png',
     'partly-cloudy-night': 'images/clouds.png',
@@ -56,12 +59,12 @@ const iconMap = {
  * @param {string} location The name of the city, "lat,lon", or "auto".
  * @param {string} [locationName] The display name for the location, to override API's resolvedAddress.
  */
-async function checkWeather(location, locationName) {
+async function checkWeather(location, locationName) { // Returns true on success, false on failure
     // Check for API key.
     if (apiKey === "YOUR_API_KEY_HERE" || !apiKey) {
         showError("API key is missing. Please add it to javascript.js");
         loader.style.display = 'none';
-        return;
+        return false;
     }
 
     // 1. Set up loading state
@@ -83,19 +86,40 @@ async function checkWeather(location, locationName) {
         const response = await fetch(apiUrl);
 
         if (!response.ok) {
-            showError(`Location not found. Please try another.`);
-            return;
+            // The API returns plain text errors for non-200 responses.
+            // This is crucial for debugging issues like an invalid API key.
+            const errorText = await response.text();
+            console.error("Visual Crossing API Error:", errorText);
+            // Show a more specific error to the user.
+            showError(`Could not fetch weather. Reason: ${errorText}`);
+            return false;
         }
 
         const data = await response.json();
         updateWeatherUI(data, locationName);
+        return true;
 
     } catch (error) {
-        console.error("Error fetching weather data:", error);
-        showError("Unable to connect. Check your network.");
+        console.error("Fetch API Error:", error);
+
+        if (isInitialLoad && error instanceof TypeError) {
+            // On initial load, a network error is likely due to an ad-blocker.
+            // Instead of a harsh error, we'll just invite the user to search manually.
+            console.warn("Initial weather fetch failed, likely due to a network block. The app is ready for manual search.");
+            loader.querySelector('p').textContent = "Auto-detection failed. Please use the search bar.";
+        } else {
+            // For manual searches or other types of errors, show the full error message.
+            let message = "Unable to connect. Please check your network.";
+            if (error instanceof TypeError) {
+                message = "Network request failed. This may be due to an ad-blocker, firewall, or a network issue.";
+            }
+            showError(message);
+        }
+        return false;
     } finally {
         // 3. Hide loader regardless of outcome
         loader.style.display = 'none';
+        isInitialLoad = false; // The first attempt is over.
     }
 }
 
@@ -106,12 +130,20 @@ async function checkWeather(location, locationName) {
  */
 function updateWeatherUI(data, locationName) {
     const { currentConditions, timezone, resolvedAddress } = data;
-    const timeStr = currentConditions.datetime.slice(0, 5); // "14:30:00" -> "14:30"
+
+    // Get the current date and time in the location's timezone.
+    // The API's `currentConditions.datetime` is the observation time, not the real-time clock time.
+    const now = new Date();
+    const timeStr = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: timezone }).format(now);
+    const dateStr = formatDate(now.getTime() / 1000, timezone);
 
     // Update main display
     tempElement.innerHTML = `${Math.round(currentConditions.temp)}°`;
+    // For simplicity, show the main city name from the resolved address.
+    // This is cleaner but less specific than showing the full address.
+    // e.g., shows "New York" instead of "New York, NY, United States".
     cityElement.innerHTML = locationName || resolvedAddress.split(',')[0];
-    dateTimeElement.innerHTML = `${timeStr} - ${formatDate(currentConditions.datetimeEpoch, timezone)}`;
+    dateTimeElement.innerHTML = `${timeStr} - ${dateStr}`;
     
     // Update details panel
     feelsLikeElement.innerHTML = `${Math.round(currentConditions.feelslike)}°`;
@@ -242,52 +274,39 @@ function setInitialTheme() {
 }
 
 /**
- * Fallback function to get weather using IP-based geolocation.
- * This is used if the browser's Geolocation API fails or is not supported.
+ * Gets the user's approximate location by parsing their browser's timezone.
+ * This is requested once on page load to show local weather.
  */
-async function getWeatherByIP() {
-    console.log("Attempting to get location via IP lookup as a fallback.");
+async function getInitialWeather() {
     try {
-        // Use a third-party service to get location from IP.
-        const ipResponse = await fetch('https://ip-api.com/json/');
-        if (!ipResponse.ok) {
-            throw new Error('IP lookup response was not ok.');
-        }
-        const ipData = await ipResponse.json();
-        if (ipData.status === 'success' && ipData.lat && ipData.lon) {
-            const location = `${ipData.lat},${ipData.lon}`;
-            // Use the city from the IP lookup for a clean display name.
-            checkWeather(location, ipData.city);
+        // Intl.DateTimeFormat().resolvedOptions().timeZone gives the IANA timezone name (e.g., "America/New_York")
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        console.log(`User's timezone is: ${userTimezone}`);
+
+        const parts = userTimezone.split('/');
+        // Take the last part of the timezone string (e.g., "Khartoum" from "Africa/Khartoum")
+        const potentialCity = parts[parts.length - 1].replace(/_/g, ' ');
+
+        // Check if the extracted name is a reasonable city name and not something generic like 'UTC' or 'GMT'
+        if (parts.length > 1 && potentialCity) {
+            console.log(`Attempting to get weather for extracted city: "${potentialCity}"`);
+            const success = await checkWeather(potentialCity);
+
+            // If the extracted city name fails (e.g., it's not in the API's database), fall back to 'auto'
+            if (!success) {
+                console.warn(`Failed to get weather for "${potentialCity}". Falling back to 'auto' detection.`);
+                hideError(); // Hide the previous error before retrying
+                await checkWeather('auto');
+            }
         } else {
-            console.warn("Could not determine coordinates from IP, falling back to 'auto'.", ipData);
-            checkWeather('auto');
+            // If timezone is simple (e.g., "UTC"), use 'auto' directly.
+            console.log("Timezone is not in Region/City format. Using 'auto' detection.");
+            await checkWeather('auto');
         }
     } catch (error) {
-        console.warn("IP-based geolocation also failed, using weather API's 'auto' fallback.", error);
-        checkWeather('auto');
-    }
-}
-
-/**
- * Tries to get the user's location via the browser's Geolocation API for accuracy.
- * This is requested once on page load. If it fails or is denied, it falls back to an IP-based lookup.
- */
-function getInitialWeather() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            (position) => { // Success
-                const { latitude, longitude } = position.coords;
-                checkWeather(`${latitude},${longitude}`);
-            },
-            (error) => { // Error or permission denied
-                console.warn(`Geolocation error (${error.code}): ${error.message}. Falling back to IP lookup.`);
-                getWeatherByIP();
-            }
-        );
-    } else {
-        // Geolocation not supported by the browser
-        console.warn("Geolocation is not supported by this browser. Falling back to IP lookup.");
-        getWeatherByIP();
+        // This might fail if Intl API is not supported, though it's highly unlikely in modern browsers.
+        console.warn("Could not determine timezone, falling back to weather API's 'auto' feature.", error);
+        await checkWeather('auto');
     }
 }
 

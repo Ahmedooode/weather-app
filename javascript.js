@@ -6,7 +6,7 @@ const cloudsContainer = document.querySelector('.clouds-bg');
 const rainContainer = document.querySelector('.rain-bg');
 const loader = document.querySelector('.loader');
 
-// Main weather display
+// Main weather display:items that show weather details
 const weatherDisplay = document.querySelector(".weather-main .weather");
 const tempElement = document.querySelector(".temp");
 const cityElement = document.querySelector(".city");
@@ -37,6 +37,9 @@ const apiKey = "P3BPWX6G9ESRZ6TV76DVUY6WA";
 const apiHost = "https://weather.visualcrossing.com";
 
 // Map API icons to our local image files
+// --- State Management ---
+let isInitialLoad = true;
+
 const iconMap = {
     'partly-cloudy-day': 'images/clouds.png',
     'partly-cloudy-night': 'images/clouds.png',
@@ -54,13 +57,14 @@ const iconMap = {
 /**
  * Fetches and displays weather data for a given city.
  * @param {string} location The name of the city, "lat,lon", or "auto".
+ * @param {string} [locationName] The display name for the location, to override API's resolvedAddress.
  */
-async function checkWeather(location) {
-    // Add a check to ensure the API key has been set.
+async function checkWeather(location, locationName) { // Returns true on success, false on failure
+    // Check for API key.
     if (apiKey === "YOUR_API_KEY_HERE" || !apiKey) {
         showError("API key is missing. Please add it to javascript.js");
         loader.style.display = 'none';
-        return;
+        return false;
     }
 
     // 1. Set up loading state
@@ -70,11 +74,9 @@ async function checkWeather(location) {
     hideError();
     loader.style.display = 'flex';
 
-    let loadingText = `Fetching weather for ${location}...`;
+    let loadingText = `Fetching weather for ${locationName || location}...`;
     if (location === 'auto') {
         loadingText = "Fetching weather for your location...";
-    } else if (location.includes(',')) {
-        loadingText = "Fetching weather for your current coordinates...";
     }
     loader.querySelector('p').textContent = loadingText;
 
@@ -84,33 +86,64 @@ async function checkWeather(location) {
         const response = await fetch(apiUrl);
 
         if (!response.ok) {
-            showError(`Location not found. Please try another.`);
-            return;
+            // The API returns plain text errors for non-200 responses.
+            // This is crucial for debugging issues like an invalid API key.
+            const errorText = await response.text();
+            console.error("Visual Crossing API Error:", errorText);
+            // Show a more specific error to the user.
+            showError(`Could not fetch weather. Reason: ${errorText}`);
+            return false;
         }
 
         const data = await response.json();
-        updateWeatherUI(data);
+        updateWeatherUI(data, locationName);
+        return true;
 
     } catch (error) {
-        console.error("Error fetching weather data:", error);
-        showError("Unable to connect. Check your network.");
+        console.error("Fetch API Error:", error);
+
+        if (isInitialLoad && error instanceof TypeError) {
+            // On initial load, a network error is likely due to an ad-blocker.
+            // Instead of a harsh error, we'll just invite the user to search manually.
+            console.warn("Initial weather fetch failed, likely due to a network block. The app is ready for manual search.");
+            loader.querySelector('p').textContent = "Auto-detection failed. Please use the search bar.";
+        } else {
+            // For manual searches or other types of errors, show the full error message.
+            let message = "Unable to connect. Please check your network.";
+            if (error instanceof TypeError) {
+                message = "Network request failed. This may be due to an ad-blocker, firewall, or a network issue.";
+            }
+            showError(message);
+        }
+        return false;
     } finally {
         // 3. Hide loader regardless of outcome
         loader.style.display = 'none';
+        isInitialLoad = false; // The first attempt is over.
     }
 }
 
 /**
  * Updates the entire UI with the fetched weather data.
  * @param {object} data The weather data object from the API.
+ * @param {string} [locationName] The display name for the location.
  */
-function updateWeatherUI(data) {
-    const { currentConditions } = data;
+function updateWeatherUI(data, locationName) {
+    const { currentConditions, timezone, resolvedAddress } = data;
+
+    // Get the current date and time in the location's timezone.
+    // The API's `currentConditions.datetime` is the observation time, not the real-time clock time.
+    const now = new Date();
+    const timeStr = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: timezone }).format(now);
+    const dateStr = formatDate(now.getTime() / 1000, timezone);
 
     // Update main display
     tempElement.innerHTML = `${Math.round(currentConditions.temp)}°`;
-    cityElement.innerHTML = data.resolvedAddress.split(',')[0]; // Show just the city name
-    dateTimeElement.innerHTML = formatDateTime(currentConditions.datetimeEpoch);
+    // For simplicity, show the main city name from the resolved address.
+    // This is cleaner but less specific than showing the full address.
+    // e.g., shows "New York" instead of "New York, NY, United States".
+    cityElement.innerHTML = locationName || resolvedAddress.split(',')[0];
+    dateTimeElement.innerHTML = `${timeStr} - ${dateStr}`;
     
     // Update details panel
     feelsLikeElement.innerHTML = `${Math.round(currentConditions.feelslike)}°`;
@@ -118,8 +151,9 @@ function updateWeatherUI(data) {
     windElement.innerHTML = `${currentConditions.windspeed} km/h`;
     uvIndexElement.innerHTML = currentConditions.uvindex;
     visibilityElement.innerHTML = `${currentConditions.visibility} km`;
-    sunriseElement.innerHTML = formatTime(currentConditions.sunriseEpoch);
-    sunsetElement.innerHTML = formatTime(currentConditions.sunsetEpoch);
+    // Use pre-formatted time strings from API and slice to HH:MM
+    sunriseElement.innerHTML = currentConditions.sunrise.slice(0, 5);
+    sunsetElement.innerHTML = currentConditions.sunset.slice(0, 5);
 
     // Update icon and background
     updateAppearance(currentConditions);
@@ -145,6 +179,13 @@ function updateAppearance(conditions) {
 
     const conditionIcon = conditions.icon; // e.g., "partly-cloudy-day", "clear-night", "rain"
 
+    // Set day/night theme based on API response (icon name)
+    if (conditionIcon.includes('night')) {
+        body.classList.add('night');
+    } else {
+        body.classList.remove('night');
+    }
+
     // Set dynamic background effects
     if (cloudsContainer && conditionIcon.includes('cloudy')) {
         cloudsContainer.classList.add('visible');
@@ -158,35 +199,15 @@ function updateAppearance(conditions) {
 }
 
 /**
- * Formats a UNIX epoch timestamp into a human-readable string.
+ * Formats a UNIX epoch timestamp into a human-readable date string for a specific timezone.
  * @param {number} epochSeconds The timestamp in seconds.
- * @returns {string} The formatted date and time string.
+ * @param {string} timeZone The IANA timezone name (e.g., "America/New_York").
+ * @returns {string} The formatted date string (e.g., "Monday, 1 Sep").
  */
-function formatDateTime(epochSeconds) {
+function formatDate(epochSeconds, timeZone) {
     const date = new Date(epochSeconds * 1000);
-    const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: false };
-    const dateOptions = { weekday: 'long', day: 'numeric', month: 'short' };
-
-    const timeStr = new Intl.DateTimeFormat('en-US', timeOptions).format(date);
-    const dateStr = new Intl.DateTimeFormat('en-US', dateOptions).format(date);
-
-    // Manually construct to get "06:09 - Monday, 1 Sep" format
-    return `${timeStr} - ${dateStr}`;
-}
-
-/**
- * Formats a UNIX epoch timestamp into a HH:MM string.
- * @param {number} epochSeconds The timestamp in seconds.
- * @returns {string} The formatted time string (e.g., "06:30").
- */
-function formatTime(epochSeconds) {
-    const date = new Date(epochSeconds * 1000);
-    const options = {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    };
-    return new Intl.DateTimeFormat('en-US', options).format(date);
+    const dateOptions = { weekday: 'long', day: 'numeric', month: 'short', timeZone };
+    return new Intl.DateTimeFormat('en-US', dateOptions).format(date);
 }
 
 /**
@@ -239,8 +260,8 @@ function hideError() {
 }
 
 /**
- * Sets the day/night theme based on the user's local time.
- * This determines the main background image and star visibility.
+ * Sets the initial day/night theme based on the user's local time.
+ * This determines the main background color before the first API call.
  */
 function setInitialTheme() {
     const currentHour = new Date().getHours();
@@ -253,13 +274,40 @@ function setInitialTheme() {
 }
 
 /**
- * Tries to get user's location via Geolocation API,
- * falling back to IP-based lookup.
+ * Gets the user's approximate location by parsing their browser's timezone.
+ * This is requested once on page load to show local weather.
  */
-function getInitialWeather() {
-    // Get weather based on user's IP address.
-    // This avoids the need for a browser permission prompt.
-    checkWeather('auto');
+async function getInitialWeather() {
+    try {
+        // Intl.DateTimeFormat().resolvedOptions().timeZone gives the IANA timezone name (e.g., "America/New_York")
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        console.log(`User's timezone is: ${userTimezone}`);
+
+        const parts = userTimezone.split('/');
+        // Take the last part of the timezone string (e.g., "Khartoum" from "Africa/Khartoum")
+        const potentialCity = parts[parts.length - 1].replace(/_/g, ' ');
+
+        // Check if the extracted name is a reasonable city name and not something generic like 'UTC' or 'GMT'
+        if (parts.length > 1 && potentialCity) {
+            console.log(`Attempting to get weather for extracted city: "${potentialCity}"`);
+            const success = await checkWeather(potentialCity);
+
+            // If the extracted city name fails (e.g., it's not in the API's database), fall back to 'auto'
+            if (!success) {
+                console.warn(`Failed to get weather for "${potentialCity}". Falling back to 'auto' detection.`);
+                hideError(); // Hide the previous error before retrying
+                await checkWeather('auto');
+            }
+        } else {
+            // If timezone is simple (e.g., "UTC"), use 'auto' directly.
+            console.log("Timezone is not in Region/City format. Using 'auto' detection.");
+            await checkWeather('auto');
+        }
+    } catch (error) {
+        // This might fail if Intl API is not supported, though it's highly unlikely in modern browsers.
+        console.warn("Could not determine timezone, falling back to weather API's 'auto' feature.", error);
+        await checkWeather('auto');
+    }
 }
 
 /**
@@ -291,6 +339,6 @@ searchBtn.closest('form').addEventListener("submit", (e) => {
 });
 
 // --- Initial Load ---
-setInitialTheme(); // Set theme based on user's local time
+setInitialTheme(); // Set theme based on user's local time for the initial view.
 initializeStars(150); // Create stars once when the page loads.
 getInitialWeather(); // Get weather for user's location on start.

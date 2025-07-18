@@ -37,11 +37,14 @@ To run this project locally, follow these simple steps:
     - Replace the placeholder string with your actual API key.
     ```javascript  
 
-    const apiKey = "YOUR_REAL_API_KEY"; 
+    const apiKey = "YOUR_REAL_API_KEY";
+    
     ```
     > **Note:** It's important not to commit your real API key to a public repository.
 
 4.  **Run the application:**
     - Simply open the `index.html` file in your favorite web browser.
+
+   ## Contributions are welcome
 
 

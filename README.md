@@ -46,5 +46,5 @@ To run this project locally, follow these simple steps:
     - Simply open the `index.html` file in your favorite web browser.
 
    ## Contributions are welcome
-
+ Just go to issues page and show your innovations
 

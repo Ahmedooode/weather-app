@@ -180,7 +180,8 @@ function updateAppearance(conditions) {
     const conditionIcon = conditions.icon; // e.g., "partly-cloudy-day", "clear-night", "rain"
 
     // Set day/night theme based on API response (icon name)
-    if (conditionIcon.includes('night')) {
+    // Force night theme if icon indicates night or if UV index is 0 (a reliable indicator of no sun)
+    if (conditionIcon.includes('night') || conditions.uvindex === 0) {
         body.classList.add('night');
     } else {
         body.classList.remove('night');

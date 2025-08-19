@@ -358,21 +358,36 @@ function initializeStars(count) {
     starsContainer.appendChild(star);
   }
 }
+
+async function getLatLonFromCity(cityName) {
+  const url = `https://nominatim.openstreetmap.org/search?city=${encodeURIComponent(
+    cityName
+  )}&format=json&limit=1`;
+  const response = await fetch(url);
+  const data = await response.json();
+  if (data.length > 0) {
+    return { lat: data[0].lat, lon: data[0].lon };
+  }
+  return null;
+}
+
 // --- Event Listeners ---
-searchBtn.closest("form").addEventListener("submit", (e) => {
-  e.preventDefault(); // Prevent page reload
-  if (searchBox.value) {
-    const city = searchBox.value.trim();
+
+searchBtn.closest("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  let city = searchBox.value.trim();
+
+  // Try to get lat/lon if input is Arabic or unknown
+  const coords = await getLatLonFromCity(city);
+
+  if (coords) {
+    const location = `${coords.lat},${coords.lon}`;
     localStorage.setItem("lastCity", city);
-    checkWeather(city); // Only call once
+    checkWeather(location, city); // API gets lat/lon, UI shows Arabic name
+  } else {
+    showError("City not found");
   }
 });
-
-// --- Optional: Load from localStorage on page load ---
-const lastCity = localStorage.getItem("lastCity");
-if (lastCity) {
-  checkWeather(lastCity);
-}
 
 // --- Initial Load ---
 setInitialTheme(); // Set theme based on user's local time for the initial view.
